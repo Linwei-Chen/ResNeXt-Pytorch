@@ -108,7 +108,7 @@ class ModelSaver:
         except Exception:
             print(f'*** Loading {name} fail!')
         else:
-            print(f'*** Saveing {name} successfully')
+            print(f'*** Loading {name} successfully')
 
     def save(self, name, model):
         try:
