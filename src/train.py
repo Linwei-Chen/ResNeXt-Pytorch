@@ -23,20 +23,22 @@ import time
 from lr_scheduler import WarmUpMultiStepLR
 from logger import ModelSaver, Logger
 from tqdm import tqdm
+from torch import optim
 
 
 def config():
     parser = argparse.ArgumentParser(description='Trains ResNeXt on CIFAR',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Positional arguments
-    parser.add_argument('--data_path', type=str, default='/media/charles/750GB/cifar-10-batches-py',
+    parser.add_argument('--data_path', type=str, default='/Users/chenlinwei/dataset/cifar-10-batches-py',
                         help='Root for the Cifar dataset.')
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100'], help='Choose between Cifar10/100.')
     # Optimization options
+    parser.add_argument('--optimizer', '-op', type=str, default='adam', help='Optimizer to train model.')
     parser.add_argument('--epochs', '-e', type=int, default=300, help='Number of epochs to train.')
-    parser.add_argument('--batch_size', '-b', type=int, default=1, help='Batch size.')
-    parser.add_argument('--learning_rate', '-lr', type=float, default=0.1, help='The Learning Rate.')
+    parser.add_argument('--batch_size', '-b', type=int, default=2, help='Batch size.')
+    parser.add_argument('--lr', type=float, default=0.001, help='The Learning Rate.')
     parser.add_argument('--momentum', '-m', type=float, default=0.9, help='Momentum.')
     parser.add_argument('--decay', '-d', type=float, default=0.0005, help='Weight decay (L2 penalty).')
     parser.add_argument('--test_bs', type=int, default=10)
@@ -44,7 +46,7 @@ def config():
                         help='Decrease learning rate at these epochs.')
     parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
     # Checkpoints
-    parser.add_argument('--save', '-s', type=str, default='../cifar10', help='Folder to save checkpoints.')
+    parser.add_argument('--save', '-s', type=str, default=None, help='Folder to save checkpoints.')
     parser.add_argument('--save_steps', '-ss', type=int, default=200, help='steps to save checkpoints.')
     parser.add_argument('--load', '-l', type=str, help='Checkpoint path to resume / test.')
     parser.add_argument('--test', '-t', action='store_true', help='Test only flag.')
@@ -57,12 +59,13 @@ def config():
     parser.add_argument('--ngpu', type=int, default=1, help='0 = CPU.')
     parser.add_argument('--prefetch', type=int, default=12, help='Pre-fetching threads.')
     # i/o
-    parser.add_argument('--log', type=str, default='../cifar10', help='Log folder.')
+    parser.add_argument('--log', type=str, default=None, help='Log folder.')
     args = parser.parse_args()
     if args.save is None:
         args.save = f'../{args.dataset}'
     if args.log is None:
         args.log = f'../{args.dataset}'
+    args.scheduler_name = f'{args.optimizer}_scheduler'
     return args
 
 
@@ -106,6 +109,17 @@ def get_model(args):
     return net
 
 
+def get_optimizer(args, model):
+    op_dict = {
+        'adam': optim.Adam(model.parameters(), lr=args.lr),
+        'sgd': optim.SGD(net.parameters(), args.lr, momentum=args.momentum,
+                         weight_decay=args.decay, nesterov=True)
+    }
+    assert isinstance(args.optimizer, str)
+    assert args.optimizer.lower() in [op.lower() for op in op_dict.keys()]
+    return op_dict.get(args.optimizer)
+
+
 def model_accelerate(args, net):
     if args.ngpu > 1 and torch.cuda.is_available():
         net = torch.nn.DataParallel(net, device_ids=list(range(args.ngpu)))
@@ -121,7 +135,7 @@ def get_lr(optimizer):
 
 
 # train function (forward, backward, update)
-def train(net, optimizer, train_loader, logger, model_saver):
+def train(args, net, optimizer, train_loader, logger, model_saver):
     clock = time.perf_counter()
     net.train()
     loss_avg = 0.0
@@ -148,7 +162,7 @@ def train(net, optimizer, train_loader, logger, model_saver):
             logger.visualize(key='train_loss', range=(-1000, -1))
             logger.save_log()
             model_saver.save(name='model', model=net)
-            model_saver.save(name='optimizer', model=optimizer)
+            model_saver.save(name=args.optimizer, model=optimizer)
             # break
 
 
@@ -183,17 +197,6 @@ def test(net, test_loader, logger, model_saver):
 if __name__ == '__main__':
     args = config()
 
-    # # Init logger
-    # if not os.path.isdir(args.log):
-    #     os.makedirs(args.log)
-    # log = open(os.path.join(args.log, 'log.txt'), 'w')
-    # state = {k: v for k, v in args._get_kwargs()}
-    # log.write(json.dumps(state) + '\n')
-
-    # Calculate number of epochs wrt batch size
-    # args.epochs = args.epochs * 128 // args.batch_size/
-    # args.schedule = [x * 128 // args.batch_size for x in args.schedule]
-
     train_transform, test_transform = get_cifar_transform()
     nlabels, train_loader, test_loader = get_data_set(args,
                                                       train_transform=train_transform,
@@ -203,28 +206,32 @@ if __name__ == '__main__':
     if not os.path.isdir(args.save):
         os.makedirs(args.save)
 
-    model_saver = ModelSaver(save_path=args.save, name_list=['model', 'scheduler', 'optimizer'])
+    model_saver = ModelSaver(save_path=args.save, name_list=['model', 'scheduler', args.optimizer])
     net = get_model(args)
     model_saver.load(name='model', model=net)
+
     net = model_accelerate(args, net)
-    optimizer = torch.optim.SGD(net.parameters(), args.learning_rate, momentum=args.momentum,
-                                weight_decay=args.decay, nesterov=True)
-    model_saver.load(name='optimizer', model=optimizer)
+    optimizer = get_optimizer(args, model=net)
+    model_saver.load(name=args.optimizer, model=optimizer)
+
     scheduler = WarmUpMultiStepLR(optimizer=optimizer, milestones=args.schedule, warm_up_iters=0)
-    model_saver.load(name='scheduler', model=scheduler)
+    model_saver.load(name=args.scheduler_name, model=scheduler)
 
     logger = Logger(save_path=args.log, json_name='log')
     # Main loop
     best_accuracy = 0.0
     for _ in range(args.epochs):
+        _, train_loader, test_loader = get_data_set(args,
+                                                    train_transform=train_transform,
+                                                    test_transform=test_transform)
         scheduler.step()
         epoch_now = scheduler.state_dict()['last_epoch']
         print(f'*** Epoch now:{epoch_now}.')
         if epoch_now >= args.epochs:
             print('*** Training finished!')
-        train(net, optimizer, train_loader, logger, model_saver)
+        train(args, net, optimizer, train_loader, logger, model_saver)
         test(net, test_loader, logger, model_saver)
 
-        model_saver.save(name='scheduler', model=scheduler)
+        model_saver.save(name=args.scheduler_name, model=scheduler)
         logger.save_log()
         logger.visualize()
