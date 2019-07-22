@@ -1,23 +1,23 @@
 本文结构：
 
-1. **ResNeXt  论文原文 CIFAR 部分解读**
+1. **ResNeXt 论文原文 CIFAR 部分解读**
 2. **模型具体参数**
 3. **训练过程**
 4. **训练结果**
 
+**项目地址：**[GitHberChen/ResNeXt-Pytorch](https://link.zhihu.com/?target=https%3A//github.com/GitHberChen/ResNeXt-Pytorch)
 
-
-## 一、ResNeXt  论文原文 CIFAR 部分解读
+## 一、ResNeXt 论文原文 CIFAR 部分解读
 
 首先贴 上ResNeXt 论文中关于CIFAR 上实验的相关段落：
 
 **5.3. Experiments on CIFAR**
 
-We conduct more experiments on CIFAR-10 and 100 datasets [23]. We use the architectures as in [14] and replace the basic residual block by the bottleneck template of  1×1, 64、3×3, 64、1×1, 256. Our networks start with a single 3×3 conv layer, followed by 3 stages each having 3 residual blocks, and end with average pooling and a fully-connected classifier (total 29-layer deep), following [14]. We adopt the same translation and flipping data augmentation as [14]. Implementation details are in the appendix.
+We conduct more experiments on CIFAR-10 and 100 datasets [23]. We use the architectures as in [14] and replace the basic residual block by the bottleneck template of 1×1, 64、3×3, 64、1×1, 256. Our networks start with a single 3×3 conv layer, followed by 3 stages each having 3 residual blocks, and end with average pooling and a fully-connected classifier (total 29-layer deep), following [14]. We adopt the same translation and flipping data augmentation as [14]. Implementation details are in the appendix.
 
 We compare two cases of increasing complexity based on the above baseline: (i) increase cardinality and fix all widths, or (ii) increase width of the bottleneck and fix cardinality = 1. We train and evaluate a series of networks under these changes. Fig. 7 shows the comparisons of test error rates vs. model sizes. We find that increasing cardinality is more effective than increasing width, consistent to what we have observed on ImageNet-1K. Table 7 shows the results and model sizes, comparing with the Wide ResNet [43] which is the best published record. Our model with a similar model size (34.4M) shows results better than Wide ResNet. Our larger method achieves 3.58% test error (average of 10 runs) on CIFAR-10 and 17.31% on CIFAR-100. To the best of our knowledge, these are the state-of-the-art results (with similar data augmentation) in the literature including unpublished technical reports.
 
-![img](https://pic3.zhimg.com/v2-c137bebe130600fc164de7bf68280952_b.jpeg)
+![img](https://pic3.zhimg.com/80/v2-c137bebe130600fc164de7bf68280952_hd.jpg)
 
 **A. Implementation Details: CIFAR**
 
@@ -40,7 +40,7 @@ We train the models on the 50k training set and evaluate on the 10k test set. Th
 
 根据原论文的意思，设计出 ResNeXt-29， C=16，D=64，即在第一个stage中每个 Residual Block 中的 3x3 卷积分组为 16，每组 64 层，每 max-pooling 一次，stage + 1，卷积层数翻倍：
 
-```
+```python3
 CifarResNeXt(
   (conv_1_3x3): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
   (bn_1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
@@ -148,7 +148,7 @@ CifarResNeXt(
 
 ## 三、训练过程
 
-![img](https://pic3.zhimg.com/v2-267acb7f72aa20a1f3f57abbbee34312_b.png)
+![img](https://pic3.zhimg.com/80/v2-267acb7f72aa20a1f3f57abbbee34312_hd.jpg)
 
 原论文中训练了 300 epochs，在 CIFAR-10 上达到了96.42% 的准确度，本次实现训练了 280 epochs 左右，高精度 94.64%，相对于论文的96.42% 低了 1.78%，由于需要计算资源去做其他的事情，所以中断了训练。继续训练、减小 lr 进一步训练以及采用更大的 batch size （然而我的卡放不下...）应该可以达到更高的精度。
 
@@ -165,7 +165,7 @@ CifarResNeXt(
 
 1. 前 70个epochs 使用 batch_size =32，lr = 0.1，SGD ，训练时的测试准确度维持 70% 左右，没有明显的上升趋势。
 2. 第 70~180 使用 batch_size = 48，lr = 0.1，SGD，训练时的测试准度提高到了 75%，左右，往后也没有明显的上升趋势。
-3. 第 180~250 使用  batch_size = 48，lr = 0.001， Adam，精度立马提升到 90%+。
+3. 第 180~250 使用 batch_size = 48，lr = 0.001， Adam，精度立马提升到 90%+。
 4. 第 250~280 使用 batch_size = 48，lr = 0.0001， Adam，精度进一步有 1%+ 的明显提升。
 
 
