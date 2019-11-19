@@ -106,7 +106,6 @@ def test():
 
     state['test_loss'] = loss_avg / len(test_loader)
     state['test_accuracy'] = correct / len(test_loader.dataset)
-
     # finally print state dictionary
     print(state)
 

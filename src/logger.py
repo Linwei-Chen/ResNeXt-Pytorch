@@ -148,6 +148,7 @@ if __name__ == '__main__':
         'lr': [0.1, 0.1, ],
         'time': [1, 1]
     }
+
     with open('./test_dict.json', 'w') as f:
         json.dump(test_dict, f)
     with open('./test_dict.json', 'r') as f:

@@ -27,6 +27,7 @@ class WarmUpMultiStepLR(MultiStepLR):
 
 if __name__ == '__main__':
     last_epoch = 2
+
     for iter in range(1, 1000):
         factor = 0.1
         alpha = iter / 1000

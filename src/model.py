@@ -16,6 +16,7 @@ __email__ = "pau.rodri1@gmail.com"
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
+import torch
 
 
 class ResNeXtBottleneck(nn.Module):
@@ -141,3 +142,15 @@ class CifarResNeXt(nn.Module):
         x = F.avg_pool2d(x, 8, 1)
         x = x.view(-1, self.stages[3])
         return self.classifier(x)
+
+
+if __name__ == '__main__':
+    import sys
+    # from common import download_file
+    import torchfile
+
+    # from torch.utils.serialization import load_lua
+    model = CifarResNeXt(cardinality=4, depth=101, nlabels=1000, base_width=64, widen_factor=4)
+    # print(model)
+    state_dict = torch.load('/Users/chenlinwei/Downloads/resnext_101_64x4d.t7')
+    print(state_dict)

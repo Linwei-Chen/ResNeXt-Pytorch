@@ -24,6 +24,7 @@ from lr_scheduler import WarmUpMultiStepLR
 from logger import ModelSaver, Logger
 from tqdm import tqdm
 from torch import optim
+from torch.utils.data import DataLoader
 
 
 def config():
@@ -95,10 +96,10 @@ def get_data_set(args, train_transform, test_transform):
         test_data = dset.CIFAR100(args.data_path, train=False, transform=test_transform, download=True)
         nlabels = 100
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
-                                               num_workers=args.prefetch, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size=args.test_bs, shuffle=False,
-                                              num_workers=args.prefetch, pin_memory=True)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
+                              num_workers=args.prefetch, pin_memory=True)
+    test_loader = DataLoader(test_data, batch_size=args.test_bs, shuffle=False,
+                             num_workers=args.prefetch, pin_memory=True)
     return nlabels, train_loader, test_loader
 
 
